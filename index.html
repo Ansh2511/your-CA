@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex Neural Command V9</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --bg: #020617; --glass: rgba(15, 23, 42, 0.8); 
+            --neon-blue: #38bdf8; --neon-pink: #f472b6; --neon-purple: #a855f7;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+        body { 
+            font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: #f1f5f9; 
+            margin: 0; padding: 30px; background-image: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #020617 100%);
+            min-height: 100vh;
+        }
+        .layout { max-width: 1700px; margin: 0 auto; display: grid; grid-template-columns: 400px 1fr 1fr; gap: 25px; }
+        
+        /* Glass Panels */
+        .glass-card { 
+            background: var(--glass); backdrop-filter: blur(12px); border: 1px solid var(--border);
+            border-radius: 30px; padding: 30px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            transition: transform 0.3s ease;
+        }
+        .glass-card:hover { transform: translateY(-5px); border-color: var(--neon-blue); }
+        .span-2 { grid-column: span 2; } .span-3 { grid-column: span 3; }
+
+        /* Scanning HUD */
+        .scan-container {
+            border: 2px dashed rgba(56, 189, 248, 0.3); border-radius: 20px; padding: 50px 20px;
+            text-align: center; cursor: pointer; background: rgba(56, 189, 248, 0.05); position: relative; overflow: hidden;
+        }
+        .scan-container::after {
+            content: ''; position: absolute; top: -100%; left: 0; width: 100%; height: 5px;
+            background: var(--neon-blue); box-shadow: 0 0 20px var(--neon-blue);
+            animation: scanning 3s infinite linear; display: none;
+        }
+        .is-scanning .scan-container::after { display: block; }
+        @keyframes scanning { 0% { top: -10%; } 100% { top: 110%; } }
+
+        /* Typography & Metrics */
+        h2 { font-weight: 700; letter-spacing: -1px; margin: 0 0 20px; text-transform: uppercase; font-size: 1.1rem; color: var(--neon-blue); }
+        .total-glow { font-size: 3.5rem; font-weight: 700; text-shadow: 0 0 30px rgba(56, 189, 248, 0.4); }
+
+        /* Custom Progress HUD */
+        .metric-row { margin-bottom: 25px; }
+        .metric-label { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 500; margin-bottom: 10px; color: #94a3b8; }
+        .progress-rail { height: 4px; background: rgba(255,255,255,0.05); border-radius: 10px; }
+        .progress-bar { height: 100%; border-radius: 10px; position: relative; transition: width 1.5s ease; }
+        .progress-bar::after { content: ''; position: absolute; right: 0; top: -4px; width: 12px; height: 12px; border-radius: 50%; background: inherit; box-shadow: 0 0 15px inherit; }
+
+        /* Neural Table */
+        table { width: 100%; border-collapse: separate; border-spacing: 0 12px; }
+        td { padding: 20px; background: rgba(255,255,255,0.03); border-top: 1px solid var(--border); }
+        td:first-child { border-radius: 20px 0 0 20px; }
+        td:last-child { border-radius: 0 20px 20px 0; text-align: right; }
+        .status-pill { padding: 6px 14px; border-radius: 100px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.1); }
+
+        #brain-output { font-family: monospace; font-size: 0.7rem; color: #64748b; margin-top: 20px; line-height: 1.6; }
+button{
+weidth:40px;
+height:30px;
+}
+    </style>
+</head>
+<body>
+
+<div class="layout" id="main-ui">
+    <aside class="glass-card">
+        <h2>Neural Input Source</h2>
+        <div class="scan-container" onclick="document.getElementById('receipt-upload').click()">
+            <div style="font-size: 3.5rem; margin-bottom: 15px;">🛸</div>
+            <strong style="font-size: 1.2rem; display:block">Upload Matrix</strong>
+            <span style="color:#64748b; font-size: 0.8rem">Extracting Temporal & Spatial Data</span>
+            <input type="file" id="receipt-upload" hidden multiple accept="image/*">
+        </div>
+        <div id="brain-output">> SYSTEM IDLE. STANDBY FOR PAYLOAD...</div>
+        
+        <div style="margin-top: 40px;">
+            <span style="color:#64748b; font-size:0.9rem">Net Expenditure</span>
+            <div class="total-glow">$<span id="grand-total">0.00</span></div>
+            <button onclick="localStorage.clear(); location.reload();" style="margin-top:20px; width:100%; background:rgba(244,114,182,0.1); border:1px solid var(--neon-pink); color:var(--neon-pink); padding:12px; border-radius:15px; cursor:pointer; font-weight:700">PURGE NEURAL MEMORY</button>
+        </div>
+    </aside>
+
+    <section class="glass-card">
+        <h2>Allocation Geometry</h2>
+        <canvas id="doughnut-node"></canvas>
+    </section>
+
+    <section class="glass-card">
+        <h2>Intelligence Metrics</h2>
+        <div id="metric-node"></div>
+<a href="advice.html"><button> Get Advice </button></a>
+    </section>
+
+    <section class="glass-card span-3">
+        <h2>Temporal Velocity (7-Day Cycle)</h2>
+        <canvas id="bar-node" height="80"></canvas>
+    </section>
+
+    <section class="glass-card span-3">
+        <h2>Inference Ledger</h2>
+        <table>
+            <thead>
+                <tr><th align="left">Merchant</th><th align="left">Classification</th><th align="center">Temporal Data</th><th align="right">Amount</th></tr>
+            </thead>
+            <tbody id="ledger-node"></tbody>
+        </table>
+    </section>
+</div>
+
+<script>
+    let db = JSON.parse(localStorage.getItem('apex_v9')) || [];
+    let dChart, bChart;
+
+    const MODELS = {
+        'Essentials': { keys: ['kg', 'lb', 'qty', 'milk', 'bread', 'mart', 'super', 'produce', 'grocery', 'walmart', 'target'], color: '#38bdf8' },
+        'Overhead': { keys: ['electric', 'water', 'bill', 'internet', 'invoice', 'at&t', 'verizon', 'comcast', 'tax'], color: '#a855f7' },
+        'Dining': { keys: ['rest', 'cafe', 'mcdonald', 'burger', 'pizza', 'starbucks', 'grill', 'bistro', 'tip', 'guest'], color: '#f472b6' },
+        'Lifestyle': { keys: ['zara', 'nike', 'h&m', 'apparel', 'fashion', 'shirt', 'dress', 'shoes', 'adidas', 'clothing'], color: '#fbbf24' }
+    };
+
+    function init() {
+        dChart = new Chart(document.getElementById('doughnut-node'), {
+            type: 'doughnut',
+            data: { labels: [], datasets: [{ data: [], backgroundColor: Object.values(MODELS).map(m => m.color), borderWidth: 0 }] },
+            options: { cutout: '88%', plugins: { legend: { display: false } } }
+        });
+
+        bChart = new Chart(document.getElementById('bar-node'), {
+            type: 'bar',
+            data: { labels: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'], datasets: [{ data: [0,0,0,0,0,0,0], backgroundColor: '#38bdf8', borderRadius: 20 }] },
+            options: { 
+                scales: { y: { display: false }, x: { grid: { display: false }, border: { display: false }, ticks: { color: '#64748b', font: { weight: 'bold' } } } }, 
+                plugins: { legend: { display: false } } 
+            }
+        });
+        update();
+    }
+
+    document.getElementById('receipt-upload').addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files);
+        const log = document.getElementById('brain-output');
+        document.getElementById('main-ui').classList.add('is-scanning');
+
+        for (let file of files) {
+            log.innerHTML = `> ANALYZING SPATIAL DATA: ${file.name}...`;
+            const res = await Tesseract.recognize(file, 'eng');
+            const raw = res.data.text.toLowerCase();
+
+            // Temporal Logic (Extracting the date)
+            const dateMatch = raw.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/) || raw.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}/);
+            let dateObj = new Date();
+            let dateStr = "TODAY";
+            if (dateMatch) {
+                let parsed = new Date(dateMatch[0]);
+                if (!isNaN(parsed.getTime())) { dateObj = parsed; dateStr = dateObj.toLocaleDateString(); }
+            }
+
+            // Intelligence Logic
+            let cat = 'Other';
+            let max = 0;
+            for (const [name, cfg] of Object.entries(MODELS)) {
+                let s = 0; cfg.keys.forEach(k => { if(raw.includes(k)) s++; });
+                if (name === 'Essentials' && raw.match(/\d+(\.\d+)?\s*(kg|lb|qty)/)) s += 3;
+                if(s > max) { max = s; cat = name; }
+            }
+
+            const amounts = raw.match(/\d+\.\d{2}/g);
+            const amt = amounts ? Math.max(...amounts.map(Number)) : 0;
+            const merchant = (res.data.text.split('\n')[0] || "Unknown").trim().toUpperCase().substring(0,20);
+
+            db.push({ merchant, category: cat, amount: amt, day: dateObj.getDay(), dateStr });
+            localStorage.setItem('apex_v9', JSON.stringify(db));
+            update();
+        }
+        document.getElementById('main-ui').classList.remove('is-scanning');
+        log.innerHTML = `> SCAN COMPLETE. MEMORY UPDATED.`;
+    });
+
+    function update() {
+        const ledger = document.getElementById('ledger-node');
+        const metrics = document.getElementById('metric-node');
+        ledger.innerHTML = ''; metrics.innerHTML = '';
+        
+        let total = 0;
+        let stats = { Essentials:0, Overhead:0, Dining:0, Lifestyle:0, Other:0 };
+        let week = [0,0,0,0,0,0,0];
+
+        db.forEach(item => {
+            total += item.amount;
+            stats[item.category] = (stats[item.category] || 0) + item.amount;
+            week[item.day] += item.amount;
+
+            ledger.insertAdjacentHTML('afterbegin', `
+                <tr>
+                    <td><strong>${item.merchant}</strong></td>
+                    <td><span class="status-pill" style="color:${(MODELS[item.category]||{color:'#64748b'}).color}; border-color:${(MODELS[item.category]||{color:'#64748b'}).color}">${item.category}</span></td>
+                    <td align="center" style="color:#64748b; font-size:0.8rem">${item.dateStr}</td>
+                    <td style="font-size:1.1rem; font-weight:700">$${item.amount.toFixed(2)}</td>
+                </tr>
+            `);
+        });
+
+        document.getElementById('grand-total').innerText = total.toFixed(2);
+
+        Object.keys(stats).forEach(c => {
+            if(c === 'Other' && stats[c] === 0) return;
+            const pct = total > 0 ? ((stats[c] / total) * 100).toFixed(1) : 0;
+            const col = (MODELS[c] || {color:'#64748b'}).color;
+            metrics.insertAdjacentHTML('beforeend', `
+                <div class="metric-row">
+                    <div class="metric-label"><span>${c}</span><span>${pct}%</span></div>
+                    <div class="progress-rail"><div class="progress-bar" style="width:${pct}%; background:${col}; box-shadow: 0 0 15px ${col}"></div></div>
+                </div>
+            `);
+        });
+
+        dChart.data.labels = Object.keys(stats);
+        dChart.data.datasets[0].data = Object.values(stats);
+        dChart.update();
+
+        bChart.data.datasets[0].data = week;
+        bChart.update();
+    }
+
+    init();
+</script>
+</body>
+</html>
